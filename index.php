@@ -1,11 +1,15 @@
 <?php
 // /index.php
 session_start();
-if (isset($_SESSION['user_id'])) {
-    // Send them to their dashboard if they are already logged in
-    $redirect = (in_array($_SESSION['role'], ['Admin', 'Manager'])) ? '/shared/dashboard.php' : '/worker/worker-dashboard.php';
-    header("Location: " . $redirect);
-    exit();
+
+// Security Headers
+header("X-Content-Type-Options: nosniff");
+header("X-Frame-Options: DENY");
+header("Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline';");
+
+// Generate CSRF token if it doesn't exist
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 ?>
 <!DOCTYPE html>
@@ -22,7 +26,15 @@ if (isset($_SESSION['user_id'])) {
             <h1 class="text-2xl font-bold text-blue-600">FieldGuard</h1>
         </div>
         
+        <?php if (!empty($_SESSION['error'])): ?>
+            <div class="bg-red-50 text-red-600 p-3 rounded-xl text-sm mb-4 text-center">
+                <?= htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?>
+            </div>
+        <?php endif; ?>
+
         <form action="/logic/login-process.php" method="POST" class="space-y-5">
+            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+            
             <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Email Address</label>
                 <input type="email" name="email" required 

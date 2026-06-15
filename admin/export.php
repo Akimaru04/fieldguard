@@ -3,25 +3,36 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 
-// Security: Admin only (since you moved it to the admin folder)
 checkRole(['Admin']);
 
-// Set headers to force download as a CSV
+// Set headers for CSV download
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="fieldguard_attendance_' . date('Y-m-d') . '.csv"');
 
-// Open the output stream
 $output = fopen('php://output', 'w');
 
-// Write the column headers
-fputcsv($output, ['Log ID', 'User ID', 'Site ID', 'Latitude', 'Longitude', 'Status', 'Timestamp']);
+// Explicitly provide all parameters (delimiter, enclosure, escape) to satisfy PHP 8.1+
+fputcsv($output, ['Log ID', 'User Email', 'Site Name', 'Latitude', 'Longitude', 'Status', 'Check-in Time'], ',', '"', '\\');
 
-// Fetch the logs from the database
-$stmt = $pdo->query("SELECT id, user_id, site_id, latitude, longitude, status, created_at FROM attendance_logs ORDER BY created_at DESC");
+$sql = "SELECT al.id, u.email, s.name, al.latitude, al.longitude, al.status, al.check_in_time 
+        FROM attendance_logs al 
+        JOIN users u ON al.user_id = u.id 
+        JOIN sites s ON al.site_id = s.id 
+        ORDER BY al.check_in_time DESC";
 
-// Loop through the rows and write to the CSV
+$stmt = $pdo->query($sql);
+
 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    fputcsv($output, $row);
+    // Pass the row data and the explicit parameters here as well
+    fputcsv($output, [
+        $row['id'],
+        $row['email'],
+        $row['name'],
+        $row['latitude'],
+        $row['longitude'],
+        $row['status'],
+        $row['check_in_time']
+    ], ',', '"', '\\');
 }
 
 fclose($output);

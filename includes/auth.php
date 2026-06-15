@@ -1,26 +1,34 @@
 <?php
-// Ensure session is started once
-if (session_status() === PHP_SESSION_NONE) session_start();
+// /includes/auth.php
 
-function checkRole($expectWorker) {
-    // If not logged in, boot to index
-    if (!isset($_SESSION['user_id'])) {
+// 1. Ensure session is started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// 2. Immediate enforcement for pages that include this directly
+if (empty($_SESSION['user_id'])) {
+    header("Location: /index.php");
+    exit();
+}
+
+/**
+ * Checks if the logged-in user has the required roles.
+ * @param array $allowedRoles Array of permitted roles (e.g., ['Admin', 'Manager'])
+ */
+function checkRole(array $allowedRoles) {
+    // Re-verify session status
+    if (empty($_SESSION['user_id'])) {
         header("Location: /index.php");
         exit();
     }
 
-    // $expectWorker is true for worker dashboard, false for shared
-    $isWorker = (bool)($_SESSION['is_worker'] ?? false);
+    $userRole = strtolower(trim($_SESSION['role'] ?? ''));
+    $normalizedAllowed = array_map(fn($r) => strtolower(trim($r)), $allowedRoles);
 
-    // If the role doesn't match the expectation, redirect
-    if ($isWorker !== $expectWorker) {
-        $target = $expectWorker ? '/worker/worker-dashboard.php' : '/shared/dashboard.php';
-        
-        // Only redirect if NOT already there
-        if ($_SERVER['PHP_SELF'] !== $target) {
-            header("Location: $target");
-            exit();
-        }
+    if (!in_array($userRole, $normalizedAllowed)) {
+        header("Location: /index.php?error=unauthorized");
+        exit();
     }
 }
 ?>
