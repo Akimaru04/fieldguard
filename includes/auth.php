@@ -1,34 +1,18 @@
 <?php
 // /includes/auth.php
-
-// 1. Ensure session is started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// 2. Immediate enforcement for pages that include this directly
+// Global Auth Check
 if (empty($_SESSION['user_id'])) {
-    header("Location: /index.php");
-    exit();
+    http_response_code(403);
+    exit(json_encode(['status' => 'error', 'msg' => 'Session expired.']));
 }
 
-/**
- * Checks if the logged-in user has the required roles.
- * @param array $allowedRoles Array of permitted roles (e.g., ['Admin', 'Manager'])
- */
 function checkRole(array $allowedRoles) {
-    // Re-verify session status
-    if (empty($_SESSION['user_id'])) {
-        header("Location: /index.php");
-        exit();
-    }
-
-    $userRole = strtolower(trim($_SESSION['role'] ?? ''));
-    $normalizedAllowed = array_map(fn($r) => strtolower(trim($r)), $allowedRoles);
-
-    if (!in_array($userRole, $normalizedAllowed)) {
-        header("Location: /index.php?error=unauthorized");
-        exit();
+    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $allowedRoles)) {
+        http_response_code(403);
+        exit(json_encode(['status' => 'error', 'msg' => 'Unauthorized.']));
     }
 }
-?>

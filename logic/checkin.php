@@ -1,9 +1,11 @@
 <?php
+// /logic/checkin.php
 session_start();
 header('Content-Type: application/json');
-
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 
+// 1. Auth and Security
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
     http_response_code(403);
     exit(json_encode(['status' => 'error', 'message' => 'Unauthorized']));
@@ -18,28 +20,48 @@ if ($csrf !== $_SESSION['csrf_token'] || $lat === false || $long === false) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT s.id, s.latitude, s.longitude, s.geofence_radius_meters 
-                           FROM user_assignments ua 
-                           JOIN sites s ON ua.site_id = s.id 
-                           WHERE ua.user_id = ? LIMIT 1");
-    $stmt->execute([$_SESSION['user_id']]);
-    $site = $stmt->fetch(PDO::FETCH_ASSOC);
+    // 2. Spatial Query: Find nearest site within geofence
+    // Using Haversine formula to calculate distance in meters
+    $stmt = $pdo->prepare("
+        SELECT id, 
+               (6371000 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance_meters
+        FROM sites 
+        WHERE is_active = 1
+        HAVING distance_meters <= COALESCE(geofence_radius_meters, 100)
+        ORDER BY distance_meters ASC
+        LIMIT 1
+    ");
+    $stmt->execute([$lat, $long, $lat]);
+    $targetSite = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$site) exit(json_encode(['status' => 'error', 'message' => 'No site assigned']));
+    if (!$targetSite) {
+        exit(json_encode(['status' => 'error', 'message' => 'You are outside the geofence of any active site.']));
+    }
 
-    // Haversine Distance
-    $earthRadius = 6371000;
-    $dLat = deg2rad($lat - $site['latitude']);
-    $dLon = deg2rad($long - $site['longitude']);
-    $a = sin($dLat/2)**2 + cos(deg2rad($site['latitude'])) * cos(deg2rad($lat)) * sin($dLon/2)**2;
-    $dist = $earthRadius * 2 * atan2(sqrt($a), sqrt(1-$a));
+    // 3. Database Transaction: Atomic update and log
+    $pdo->beginTransaction();
+    
+    // Close current assignment
+    $pdo->prepare("UPDATE user_assignments SET ended_at = UTC_TIMESTAMP() WHERE user_id = ? AND ended_at IS NULL")
+        ->execute([$_SESSION['user_id']]);
+    
+    // Create new assignment
+    $pdo->prepare("INSERT INTO user_assignments (user_id, site_id, started_at) VALUES (?, ?, UTC_TIMESTAMP())")
+        ->execute([$_SESSION['user_id'], $targetSite['id']]);
+    
+    // Log attendance
+    $pdo->prepare("INSERT INTO attendance_logs (user_id, site_id, latitude, longitude, distance_from_site, status, check_in_time) VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())")
+        ->execute([$_SESSION['user_id'], $targetSite['id'], $lat, $long, $targetSite['distance_meters'], 'Valid']);
+    
+    $pdo->commit();
+    
+    echo json_encode(['status' => 'success', 'site_id' => $targetSite['id']]);
 
-    $status = ($dist <= $site['geofence_radius_meters']) ? 'Valid' : 'Flagged';
-
-    $stmt = $pdo->prepare("INSERT INTO attendance_logs (user_id, site_id, latitude, longitude, distance_from_site, status) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$_SESSION['user_id'], $site['id'], $lat, $long, $dist, $status]);
-
-    echo json_encode(['status' => 'success', 'check_in_status' => $status]);
 } catch (Exception $e) {
-    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    // Log error internally for debugging
+    error_log("Check-in Error: " . $e->getMessage());
+    echo json_encode(['status' => 'error', 'message' => 'Failed to process check-in. Please try again.']);
 }
