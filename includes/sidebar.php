@@ -1,4 +1,5 @@
 <?php
+// /includes/sidebar.php
 if (session_status() === PHP_SESSION_NONE) session_start();
 $role = $_SESSION['role'] ?? 'Field Worker';
 $linkClass = "block px-4 py-3 rounded-xl text-sm font-semibold hover:bg-blue-50 hover:text-blue-700 transition-all";

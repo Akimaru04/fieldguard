@@ -17,7 +17,6 @@ if (empty($_SESSION['csrf_token'])) {
 $users = $pdo->query("SELECT id, name FROM users WHERE role = 'Field Worker' AND is_active = 1 ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $sites = $pdo->query("SELECT id, name FROM sites WHERE is_active = 1 ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="max-w-lg mx-auto p-4 md:p-8">

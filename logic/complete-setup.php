@@ -1,4 +1,5 @@
 <?php
+// /logic/complete-setup.php
 require_once __DIR__ . '/../config/db.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['token'];

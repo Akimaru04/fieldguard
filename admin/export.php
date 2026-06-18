@@ -1,4 +1,5 @@
 <?php
+// /admin/export.php
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 
@@ -15,7 +16,7 @@ header('Content-Disposition: attachment; filename="fieldguard_attendance_' . dat
 $output = fopen('php://output', 'w');
 fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM for Excel
 
-fputcsv($output, ['Log ID', 'Email', 'Site', 'Lat', 'Long', 'Status', 'Check-in', 'Check-out', 'Duty', 'Reason']);
+fputcsv($output, ['Log ID', 'Email', 'Site', 'Lat', 'Long', 'Status', 'Check-in', 'Check-out', 'Duty', 'Reason', 'Overridden By']);
 
 // Corrected Query: Fetching 'shift_type' as 'duty' and adding 'override_reason'
 $sql = "SELECT al.id, u.email, s.name as site_name, al.latitude, al.longitude, al.status, 

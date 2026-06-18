@@ -1,4 +1,5 @@
 <?php
+// /logic/checkin.php
 session_start();
 // Set timezone immediately
 date_default_timezone_set('Asia/Manila'); 
