@@ -1,67 +1,70 @@
 <?php
-// /logic/checkin.php
 session_start();
+// Set timezone immediately
+date_default_timezone_set('Asia/Manila'); 
 header('Content-Type: application/json');
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/functions.php';
 
-// 1. Auth and Security
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id'])) {
-    http_response_code(403);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_SESSION['user_id']) || ($_POST['csrf_token'] ?? '') !== $_SESSION['csrf_token']) {
     exit(json_encode(['status' => 'error', 'message' => 'Unauthorized']));
 }
 
 $lat = filter_input(INPUT_POST, 'lat', FILTER_VALIDATE_FLOAT);
 $long = filter_input(INPUT_POST, 'long', FILTER_VALIDATE_FLOAT);
-$csrf = $_POST['csrf_token'] ?? '';
+$photo_url = filter_input(INPUT_POST, 'photo_url', FILTER_SANITIZE_URL) ?? '';
 
-if ($csrf !== $_SESSION['csrf_token'] || $lat === false || $long === false) {
-    exit(json_encode(['status' => 'error', 'message' => 'Invalid data or token']));
+if (!empty($_FILES['photo']['name'])) {
+    $upload_dir = __DIR__ . '/../uploads/';
+    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+    $filename = uniqid('checkin_') . '.jpg';
+    if (move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . $filename)) {
+        $photo_url = '/uploads/' . $filename;
+    }
 }
 
 try {
-    // 2. Spatial Query: Find nearest site within geofence
-    // Using Haversine formula to calculate distance in meters
-    $stmt = $pdo->prepare("
-        SELECT id, 
-               (6371000 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance_meters
-        FROM sites 
-        WHERE is_active = 1
-        HAVING distance_meters <= COALESCE(geofence_radius_meters, 100)
-        ORDER BY distance_meters ASC
-        LIMIT 1
-    ");
+    $stmt = $pdo->prepare("SELECT id, geofence_radius_meters, (6371000 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) AS distance_meters FROM sites WHERE is_active = 1 ORDER BY distance_meters ASC LIMIT 1");
     $stmt->execute([$lat, $long, $lat]);
-    $targetSite = $stmt->fetch(PDO::FETCH_ASSOC);
+    $site = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$targetSite) {
-        exit(json_encode(['status' => 'error', 'message' => 'You are outside the geofence of any active site.']));
+    if (!$site) exit(json_encode(['status' => 'error', 'message' => 'No active site found.']));
+
+    $status = ($site['distance_meters'] <= ($site['geofence_radius_meters'] ?? 150)) ? 'Valid' : 'Flagged';
+
+    // Time-based shift calculation using Manila time
+    $currentHour = (int)date('H');
+    if ($currentHour >= 6 && $currentHour < 14) {
+        $shiftType = 'Day';
+    } elseif ($currentHour >= 14 && $currentHour < 22) {
+        $shiftType = 'Night';
+    } else {
+        $shiftType = 'Graveyard';
     }
 
-    // 3. Database Transaction: Atomic update and log
     $pdo->beginTransaction();
-    
-    // Close current assignment
-    $pdo->prepare("UPDATE user_assignments SET ended_at = UTC_TIMESTAMP() WHERE user_id = ? AND ended_at IS NULL")
-        ->execute([$_SESSION['user_id']]);
-    
-    // Create new assignment
-    $pdo->prepare("INSERT INTO user_assignments (user_id, site_id, started_at) VALUES (?, ?, UTC_TIMESTAMP())")
-        ->execute([$_SESSION['user_id'], $targetSite['id']]);
-    
-    // Log attendance
-    $pdo->prepare("INSERT INTO attendance_logs (user_id, site_id, latitude, longitude, distance_from_site, status, check_in_time) VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())")
-        ->execute([$_SESSION['user_id'], $targetSite['id'], $lat, $long, $targetSite['distance_meters'], 'Valid']);
-    
+
+    // Use current Manila time for database consistency
+    $checkInTime = date('Y-m-d H:i:s');
+
+    $stmt = $pdo->prepare("SELECT user_id FROM user_assignments WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    if ($stmt->fetch()) {
+        $pdo->prepare("UPDATE user_assignments SET site_id = ?, assigned_at = ?, ended_at = NULL WHERE user_id = ?")
+            ->execute([$site['id'], $checkInTime, $_SESSION['user_id']]);
+    } else {
+        $pdo->prepare("INSERT INTO user_assignments (user_id, site_id, assigned_at, assigned_by) VALUES (?, ?, ?, ?)")
+            ->execute([$_SESSION['user_id'], $site['id'], $checkInTime, $_SESSION['user_id']]);
+    }
+
+    $stmt = $pdo->prepare("INSERT INTO attendance_logs 
+        (user_id, site_id, latitude, longitude, distance_from_site, status, photo_url, shift_type, check_in_time) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$_SESSION['user_id'], $site['id'], $lat, $long, $site['distance_meters'], $status, $photo_url, $shiftType, $checkInTime]);
+
     $pdo->commit();
-    
-    echo json_encode(['status' => 'success', 'site_id' => $targetSite['id']]);
+    echo json_encode(['status' => 'success', 'message' => 'Check-in successful.']);
 
 } catch (Exception $e) {
-    if (isset($pdo) && $pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    // Log error internally for debugging
-    error_log("Check-in Error: " . $e->getMessage());
-    echo json_encode(['status' => 'error', 'message' => 'Failed to process check-in. Please try again.']);
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
 }

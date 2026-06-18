@@ -1,15 +1,20 @@
 <?php
 // /logic/process-assignment.php
+session_start();
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+
+// 1. Authorization & CSRF Check
 checkRole(['Admin']);
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    die("Invalid request method.");
+$inputToken = $_POST['csrf_token'] ?? '';
+if (empty($inputToken) || $inputToken !== ($_SESSION['csrf_token'] ?? '')) {
+    die("Security token invalid.");
 }
 
-$user_id = $_POST['user_id'] ?? null;
-$site_id = $_POST['site_id'] ?? null;
+// 2. Data Validation
+$user_id = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
+$site_id = filter_input(INPUT_POST, 'site_id', FILTER_VALIDATE_INT);
 
 if ($user_id && $site_id) {
     try {
@@ -20,9 +25,9 @@ if ($user_id && $site_id) {
         
         header("Location: ../admin/team.php?status=success");
     } catch (PDOException $e) {
-        error_log($e->getMessage());
         header("Location: ../admin/team.php?status=error");
     }
 } else {
     header("Location: ../admin/team.php?status=invalid");
 }
+exit();

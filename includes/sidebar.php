@@ -17,7 +17,7 @@ $linkClass = "block px-4 py-3 rounded-xl text-sm font-semibold hover:bg-blue-50 
             <a href="/shared/sites.php" class="<?= $linkClass . ' ' . isActive('/shared/sites.php') ?>">Sites</a>
         <?php endif; ?>
 
-        <?php if ($role === 'Admin' || $role === 'Manager'): ?>
+        <?php if ($role === 'Admin'): ?>
             <div class="pt-6 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Administration</div>
             <a href="/admin/team.php" class="<?= $linkClass . ' ' . isActive('/admin/team.php') ?>">Team Management</a>
         <?php endif; ?>

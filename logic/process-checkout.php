@@ -1,57 +1,49 @@
 <?php
-// /logic/process-checkout.php
+session_start();
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../includes/functions.php';
 
-if (!isset($_SESSION['user_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(403);
-    exit;
+// 1. Security & CSRF Validation
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['csrf_token']) || $_POST['csrf_token'] !== ($_SESSION['csrf_token'] ?? '')) {
+    exit(json_encode(['status' => 'error', 'msg' => 'Security token invalid.']));
 }
 
-// 1. Upload Handling
-$upload_dir = __DIR__ . '/../uploads/';
-if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+// 2. Secure File Upload
+if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+    exit(json_encode(['status' => 'error', 'msg' => 'Photo required.']));
+}
 
-$photo_name = 'checkout_' . $_SESSION['user_id'] . '_' . time() . '.jpg';
+$upload_dir = __DIR__ . '/../uploads/';
+$file_ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+if (!in_array($file_ext, ['jpg', 'jpeg'])) {
+    exit(json_encode(['status' => 'error', 'msg' => 'Invalid file type.']));
+}
+
+$photo_name = 'checkout_' . $_SESSION['user_id'] . '_' . bin2hex(random_bytes(8)) . '.jpg';
 if (!move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . $photo_name)) {
-    echo json_encode(['status' => 'error', 'msg' => 'Upload failed.']);
-    exit;
+    exit(json_encode(['status' => 'error', 'msg' => 'Upload failed.']));
 }
 
 try {
-    // 2. Logic Guard: Check duration before allowing checkout
-    // Using TIMESTAMPDIFF to calculate elapsed time in minutes
-    $stmt = $pdo->prepare("
-        SELECT TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) as elapsed 
-        FROM attendance_logs 
-        WHERE user_id = ? AND check_out_time IS NULL 
-        ORDER BY check_in_time DESC LIMIT 1
-    ");
+    // 3. Logic Guard: Check duration
+    $stmt = $pdo->prepare("SELECT TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) as elapsed FROM attendance_logs WHERE user_id = ? AND check_out_time IS NULL ORDER BY check_in_time DESC LIMIT 1");
     $stmt->execute([$_SESSION['user_id']]);
     $log = $stmt->fetch();
 
-    $is_part_time = false; // Placeholder for actual part-time logic
-    $min_required = $is_part_time ? 60 :480; // Safety buffer (in minutes)
+    $min_required = 480; // Default 8 hours
 
     if (!$log || $log['elapsed'] < $min_required) {
-        echo json_encode(['status' => 'error', 'msg' => 'Checkout not permitted. Please contact your supervisor if you need to end your shift early.']);
-        exit;
+        // Cleanup the uploaded file if checkout is rejected
+        unlink($upload_dir . $photo_name);
+        exit(json_encode(['status' => 'error', 'msg' => 'Checkout not permitted. Shift duration incomplete.']));
     }
 
-    // 3. Process Checkout
-    $sql = "UPDATE attendance_logs 
-            SET check_out_time = NOW(), photo_url = ? 
-            WHERE user_id = ? AND check_out_time IS NULL 
-            ORDER BY check_in_time DESC LIMIT 1";
-            
-    $stmt = $pdo->prepare($sql);
+    // 4. Update Database
+    $stmt = $pdo->prepare("UPDATE attendance_logs SET check_out_time = NOW(), photo_url = ? WHERE user_id = ? AND check_out_time IS NULL ORDER BY check_in_time DESC LIMIT 1");
     $stmt->execute(['uploads/' . $photo_name, $_SESSION['user_id']]);
 
     echo json_encode(['status' => 'success', 'msg' => 'Checkout recorded.']);
 
 } catch (PDOException $e) {
-    error_log("DB Error: " . $e->getMessage());
-    echo json_encode(['status' => 'error', 'msg' => 'Database error.']);
+    exit(json_encode(['status' => 'error', 'msg' => 'Database error.']));
 }
-?>
