@@ -36,7 +36,7 @@ $flaggedCount = $flaggedCount->fetchColumn();
         <div class="max-w-6xl mx-auto w-full">
             
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h1 class="text-2xl font-bold text-slate-900">Command Center</h1>
+                <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
                 <?php if ($_SESSION['role'] === 'Admin'): ?>
                     <a href="/admin/export.php" class="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-emerald-700 transition">Export CSV</a>
                 <?php endif; ?>
