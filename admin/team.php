@@ -111,6 +111,10 @@ try {
                 <option value="Field Worker">Field Worker</option>
                 <option value="Manager">Manager</option>
             </select>
+            <select name="employment_type" class="w-full p-3 border border-slate-200 rounded-xl text-sm">
+                <option value="Full-Time">Full-Time</option>
+                <option value="Part-Time">Part-Time</option>
+            </select>
             <div class="flex gap-2">
                 <button type="button" onclick="toggleInvite()" class="flex-1 py-2 bg-slate-100 rounded-lg text-sm font-bold">Cancel</button>
                 <button type="submit" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold">Send Invite</button>
