@@ -26,12 +26,12 @@ try {
     // Convert total seconds to full minutes
     $mins_elapsed = floor($log['total_seconds'] / 60);
 
-    // 2. Strict 30-minute Gatekeeper
-    if ($mins_elapsed < 30) {
+    // 2. Strict 4-hour Gatekeeper
+    if ($mins_elapsed < 240) {
         $unit = ($mins_elapsed == 1) ? 'minute' : 'minutes';
         exit(json_encode([
             'status' => 'error', 
-            'message' => "Minimum 30 minutes required. Elapsed: {$mins_elapsed} {$unit}."
+            'message' => "Minimum threshold required. Elapsed: {$mins_elapsed} {$unit}. Please contact your manager."
         ]));
     }
 

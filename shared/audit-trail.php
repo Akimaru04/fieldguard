@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/header.php';
-checkRole(['Admin', 'Manager']);
+checkRole(['Manager']);
 ?>
 
 <div class="min-h-screen bg-slate-50 flex justify-start">

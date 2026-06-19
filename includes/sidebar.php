@@ -14,8 +14,11 @@ $linkClass = "block px-4 py-3 rounded-xl text-sm font-semibold hover:bg-blue-50 
     <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
         <?php if ($role === 'Admin' || $role === 'Manager'): ?>
             <a href="/shared/dashboard.php" class="<?= $linkClass . ' ' . isActive('/shared/dashboard.php') ?>">Dashboard</a>
-            <a href="/shared/audit-trail.php" class="<?= $linkClass . ' ' . isActive('/shared/audit-trail.php') ?>">Audit Trail</a>
             <a href="/shared/sites.php" class="<?= $linkClass . ' ' . isActive('/shared/sites.php') ?>">Sites</a>
+        <?php endif; ?>
+
+        <?php if ($role === 'Manager'): ?>
+            <a href="/shared/audit-trail.php" class="<?= $linkClass . ' ' . isActive('/shared/audit-trail.php') ?>">Audit Trail</a>
         <?php endif; ?>
 
         <?php if ($role === 'Admin'): ?>

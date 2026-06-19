@@ -63,8 +63,12 @@ try {
     $stmt->execute([$_SESSION['user_id'], $site['id'], $lat, $long, $site['distance_meters'], $status, $photo_url, $shiftType, $checkInTime]);
 
     $pdo->commit();
-    echo json_encode(['status' => 'success', 'message' => 'Check-in successful.']);
-
+    echo json_encode([
+    'status' => 'success', 
+    'message' => ($status === 'Flagged') ? 'Check-in successful (Flagged: Outside geofence)' : 'Check-in successful.',
+    'attendance_status' => $status,
+    'distance' => round($site['distance_meters'], 2)
+]);
 } catch (Exception $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);

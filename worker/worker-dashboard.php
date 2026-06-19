@@ -104,8 +104,22 @@ async function performAction(url, btnId, siteId = null) {
             try {
                 const res = await fetch(url, { method: 'POST', body: fd });
                 const data = await res.json();
-                showModal(data.status === 'success' ? 'Success' : 'Notice', data.message, data.status !== 'success');
-            } catch(e) { showModal('Error', 'Server unreachable', true); btn.disabled = false; }
+                
+                // --- THIS IS THE CRITICAL UPDATE ---
+                if (data.status === 'success') {
+                    if (data.attendance_status === 'Flagged') {
+                        showModal('Notice: Flagged', 'Warning: You are ' + data.distance + ' meters away from the site. Entry recorded as flagged.', false);
+                    } else {
+                        showModal('Success', data.message, false);
+                    }
+                } else {
+                    showModal('Error', data.message, true);
+                    btn.disabled = false;
+                }                
+            } catch(e) { 
+                showModal('Error', 'Server unreachable', true); 
+                btn.disabled = false; 
+            }
         }, 'image/jpeg');
     }, () => { showModal('Error', 'Location access required', true); btn.disabled = false; }, { enableHighAccuracy: true });
 }
