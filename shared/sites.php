@@ -63,7 +63,7 @@ $sites = $pdo->query("SELECT * FROM sites ORDER BY name ASC")->fetchAll(PDO::FET
                     </div>
                     <?php if ($_SESSION['role'] === 'Admin'): ?>
                     <div class="flex gap-4 pt-4 border-t border-slate-50">
-                        <a href="/shared/edit-site.php?id=<?= $site['id'] ?>" class="flex-1 text-center bg-slate-50 py-3 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors">Edit</a>
+                        <a href="/admin/edit-site.php?id=<?= $site['id'] ?>" class="flex-1 text-center bg-slate-50 py-3 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors">Edit</a>
                         <a href="?delete=<?= $site['id'] ?>" onclick="return confirm('Delete this site?');" class="flex-1 text-center text-red-600 bg-red-50 py-3 rounded-xl text-sm font-bold hover:bg-red-100 transition-colors">Delete</a>
                     </div>
                     <?php endif; ?>

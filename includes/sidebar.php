@@ -18,7 +18,7 @@ $linkClass = "block px-4 py-3 rounded-xl text-sm font-semibold hover:bg-blue-50 
         <?php endif; ?>
 
         <?php if ($role === 'Manager'): ?>
-            <a href="/shared/audit-trail.php" class="<?= $linkClass . ' ' . isActive('/shared/audit-trail.php') ?>">Audit Trail</a>
+            <a href="/manager/audit-trail.php" class="<?= $linkClass . ' ' . isActive('/shared/audit-trail.php') ?>">Audit Trail</a>
         <?php endif; ?>
 
         <?php if ($role === 'Admin'): ?>
