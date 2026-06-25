@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user) {
             $update = $pdo->prepare("UPDATE users SET password = ?, is_active = 1, setup_token = NULL WHERE id = ?");
             $update->execute([password_hash($password, PASSWORD_DEFAULT), $user['id']]);
-            header("Location: /login.php?status=activated");
+            header("Location: /index.php?status=activated");
             exit();
         }
     }
